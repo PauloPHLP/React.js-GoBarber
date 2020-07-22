@@ -1,23 +1,48 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { FormHandles } from '@unform/core';
 import { FiArrowLeft, FiMail, FiLock, FiUser } from 'react-icons/fi';
 import { Form } from '@unform/web';
+import * as Yup from 'yup';
+
+import { Container, Content, Background } from './styles';
 import Logo from '../../assets/logo.svg';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
-import { Container, Content, Background } from './styles';
+import getValidationErrors from '../../utils/getValidationErros';
 
 const SignUp: React.FC = () => {
-  function handleSubmit(data: object): void {
-    console.log(data);
-  }
+  const formRef = useRef<FormHandles>(null);
+
+  const handleSubmit = useCallback(async (data: object) => {
+    try {
+      formRef.current?.setErrors([]);
+
+      const schema = Yup.object().shape({
+        name: Yup.string().required('Fill name field'),
+        email: Yup.string().required('Fill e-mail field').email(),
+        password: Yup.string().min(
+          6,
+          'Password should have at least 6 characters',
+        ),
+      });
+
+      await schema.validate(data, {
+        abortEarly: false,
+      });
+    } catch (error) {
+      const errors = getValidationErrors(error);
+
+      formRef.current?.setErrors(errors);
+    }
+  }, []);
 
   return (
     <Container>
       <Background />
       <Content>
         <img src={Logo} alt="GoBarber" />
-        <Form onSubmit={handleSubmit}>
+        <Form onSubmit={handleSubmit} ref={formRef}>
           <h1>Create an account</h1>
           <Input name="name" type="text" placeholder="Name" icon={FiUser} />
           <Input name="email" type="email" placeholder="E-mail" icon={FiMail} />
