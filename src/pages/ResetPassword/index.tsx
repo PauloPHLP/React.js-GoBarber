@@ -1,49 +1,58 @@
 import React, { useCallback, useRef } from 'react';
-import { Link, useHistory } from 'react-router-dom';
-import { FiLogIn, FiMail, FiLock } from 'react-icons/fi';
+import { useHistory, useLocation } from 'react-router-dom';
+import { FiLock } from 'react-icons/fi';
 import { Form } from '@unform/web';
 import { FormHandles } from '@unform/core';
 import * as Yup from 'yup';
 
 import { Container, Content, Background, AnimationContainer } from './styles';
-import { useAuth } from '../../hooks/Auth';
 import { useToast } from '../../hooks/Toast';
 import Logo from '../../assets/logo.svg';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import getValidationErrors from '../../utils/getValidationErros';
+import api from '../../services/api';
 
-interface SignInFormData {
-  email: string;
+interface ResetPasswordFormData {
   password: string;
+  password_confirmation: string;
 }
 
-const SignIn: React.FC = () => {
+const ResetPassword: React.FC = () => {
   const formRef = useRef<FormHandles>(null);
-  const { signIn } = useAuth();
   const { addToast } = useToast();
   const history = useHistory();
+  const location = useLocation();
 
   const handleSubmit = useCallback(
-    async (data: SignInFormData) => {
+    async (data: ResetPasswordFormData) => {
       try {
         formRef.current?.setErrors([]);
 
         const schema = Yup.object().shape({
-          email: Yup.string().required('Fill e-mail field').email(),
           password: Yup.string().required('Fill password field'),
+          password_confirmation: Yup.string().oneOf(
+            [Yup.ref('password'), undefined],
+            'The passwords does not match.',
+          ),
         });
 
         await schema.validate(data, {
           abortEarly: false,
         });
 
-        await signIn({
-          email: data.email,
-          password: data.password,
+        const { password, password_confirmation } = data;
+        const token = location.search.replace('?token=', '');
+
+        if (!token) throw new Error();
+
+        await api.post('/password/reset', {
+          password,
+          password_confirmation,
+          token,
         });
 
-        history.push('/dashboard');
+        history.push('/');
       } catch (error) {
         if (error instanceof Yup.ValidationError) {
           const errors = getValidationErrors(error);
@@ -56,11 +65,11 @@ const SignIn: React.FC = () => {
         addToast({
           type: 'error',
           title: 'Something went wrong!',
-          description: 'Check your credentials',
+          description: 'Check your password.',
         });
       }
     },
-    [signIn, addToast, history],
+    [addToast, history, location.search],
   );
 
   return (
@@ -69,27 +78,21 @@ const SignIn: React.FC = () => {
         <AnimationContainer>
           <img src={Logo} alt="GoBarber" />
           <Form onSubmit={handleSubmit} ref={formRef}>
-            <h1>Logon into GoBarber</h1>
-            <Input
-              name="email"
-              type="email"
-              placeholder="E-mail"
-              icon={FiMail}
-            />
+            <h1>Reset password</h1>
             <Input
               name="password"
               type="password"
-              placeholder="Password"
+              placeholder="New password"
               icon={FiLock}
             />
-            <Button type="submit">Logon</Button>
-
-            <Link to="forgot-password">I forgot my password</Link>
+            <Input
+              name="password_confirmation"
+              type="password"
+              placeholder="Password confirmation"
+              icon={FiLock}
+            />
+            <Button type="submit">Reset password</Button>
           </Form>
-          <Link to="/signup">
-            <FiLogIn />
-            Create account
-          </Link>
         </AnimationContainer>
       </Content>
       <Background />
@@ -97,4 +100,4 @@ const SignIn: React.FC = () => {
   );
 };
 
-export default SignIn;
+export default ResetPassword;
